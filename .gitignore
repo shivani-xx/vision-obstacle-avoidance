@@ -1,0 +1,15 @@
+# Data and models (too large for git)
+data/
+models/
+*.pth
+*.onnx
+
+# Python
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Environment
+*.egg-info/
+.env
+venv/

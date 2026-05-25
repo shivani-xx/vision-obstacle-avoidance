@@ -1,0 +1,152 @@
+[
+  {
+    "model": "tiny_cnn",
+    "input_size": 64,
+    "params": 23844,
+    "mean_ms": 1.16,
+    "std_ms": 0.42,
+    "p50_ms": 0.96,
+    "p99_ms": 2.45,
+    "fps": 858.9
+  },
+  {
+    "model": "tiny_cnn",
+    "input_size": 128,
+    "params": 23844,
+    "mean_ms": 2.7,
+    "std_ms": 0.65,
+    "p50_ms": 2.47,
+    "p99_ms": 5.88,
+    "fps": 370.1
+  },
+  {
+    "model": "tiny_cnn",
+    "input_size": 224,
+    "params": 23844,
+    "mean_ms": 6.3,
+    "std_ms": 1.06,
+    "p50_ms": 5.91,
+    "p99_ms": 9.79,
+    "fps": 158.7
+  },
+  {
+    "model": "squeezenet",
+    "input_size": 64,
+    "params": 724548,
+    "mean_ms": 2.8,
+    "std_ms": 0.5,
+    "p50_ms": 2.6,
+    "p99_ms": 5.22,
+    "fps": 357.5
+  },
+  {
+    "model": "squeezenet",
+    "input_size": 128,
+    "params": 724548,
+    "mean_ms": 7.07,
+    "std_ms": 0.86,
+    "p50_ms": 6.88,
+    "p99_ms": 11.37,
+    "fps": 141.4
+  },
+  {
+    "model": "squeezenet",
+    "input_size": 224,
+    "params": 724548,
+    "mean_ms": 18.41,
+    "std_ms": 3.4,
+    "p50_ms": 17.13,
+    "p99_ms": 29.85,
+    "fps": 54.3
+  },
+  {
+    "model": "shufflenet",
+    "input_size": 64,
+    "params": 1257704,
+    "mean_ms": 9.99,
+    "std_ms": 0.93,
+    "p50_ms": 9.75,
+    "p99_ms": 13.92,
+    "fps": 100.1
+  },
+  {
+    "model": "shufflenet",
+    "input_size": 128,
+    "params": 1257704,
+    "mean_ms": 11.56,
+    "std_ms": 0.79,
+    "p50_ms": 11.37,
+    "p99_ms": 14.0,
+    "fps": 86.5
+  },
+  {
+    "model": "shufflenet",
+    "input_size": 224,
+    "params": 1257704,
+    "mean_ms": 19.93,
+    "std_ms": 2.46,
+    "p50_ms": 19.16,
+    "p99_ms": 28.43,
+    "fps": 50.2
+  },
+  {
+    "model": "mobilenetv3",
+    "input_size": 64,
+    "params": 1521956,
+    "mean_ms": 7.5,
+    "std_ms": 1.0,
+    "p50_ms": 7.18,
+    "p99_ms": 10.33,
+    "fps": 133.4
+  },
+  {
+    "model": "mobilenetv3",
+    "input_size": 128,
+    "params": 1521956,
+    "mean_ms": 7.93,
+    "std_ms": 1.14,
+    "p50_ms": 7.51,
+    "p99_ms": 12.13,
+    "fps": 126.1
+  },
+  {
+    "model": "mobilenetv3",
+    "input_size": 224,
+    "params": 1521956,
+    "mean_ms": 10.59,
+    "std_ms": 1.16,
+    "p50_ms": 10.29,
+    "p99_ms": 14.94,
+    "fps": 94.5
+  },
+  {
+    "model": "efficientnet",
+    "input_size": 64,
+    "params": 4012672,
+    "mean_ms": 13.31,
+    "std_ms": 1.5,
+    "p50_ms": 12.83,
+    "p99_ms": 19.84,
+    "fps": 75.1
+  },
+  {
+    "model": "efficientnet",
+    "input_size": 128,
+    "params": 4012672,
+    "mean_ms": 20.1,
+    "std_ms": 4.05,
+    "p50_ms": 19.21,
+    "p99_ms": 33.06,
+    "fps": 49.8
+  },
+  {
+    "model": "efficientnet",
+    "input_size": 224,
+    "params": 4012672,
+    "mean_ms": 26.69,
+    "std_ms": 3.47,
+    "p50_ms": 25.46,
+    "p99_ms": 38.94,
+    "fps": 37.5
+  }
+]

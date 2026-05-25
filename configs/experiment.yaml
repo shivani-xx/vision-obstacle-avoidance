@@ -1,0 +1,32 @@
+experiment:
+
+  model: mobilenetv3
+
+  image_size: 224
+
+  batch_size: 32
+
+  epochs: 15
+
+  learning_rate: 0.001
+
+  optimizer: adam
+
+  dataset:
+    difficulty: medium
+    num_frames: 10000
+
+  augmentation:
+    horizontal_flip: true
+    blur: true
+    brightness_contrast: true
+
+  deployment:
+    export_onnx: true
+    benchmark_latency: true
+
+  evaluation:
+    environments:
+      - easy
+      - medium
+      - hard
