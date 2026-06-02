@@ -1,0 +1,50 @@
+[
+  {
+    "model": "mobilenetv3",
+    "resolution": 128,
+    "mean_ms": 10.61,
+    "std_ms": 1.99,
+    "p99_ms": 16.13,
+    "fps": 94.3
+  },
+  {
+    "model": "mobilenetv3",
+    "resolution": 224,
+    "mean_ms": 14.58,
+    "std_ms": 2.21,
+    "p99_ms": 19.91,
+    "fps": 68.6
+  },
+  {
+    "model": "efficientnet",
+    "resolution": 128,
+    "mean_ms": 22.41,
+    "std_ms": 2.45,
+    "p99_ms": 29.47,
+    "fps": 44.6
+  },
+  {
+    "model": "efficientnet",
+    "resolution": 224,
+    "mean_ms": 34.11,
+    "std_ms": 4.15,
+    "p99_ms": 46.58,
+    "fps": 29.3
+  },
+  {
+    "model": "squeezenet",
+    "resolution": 128,
+    "mean_ms": 9.79,
+    "std_ms": 1.62,
+    "p99_ms": 13.99,
+    "fps": 102.1
+  },
+  {
+    "model": "squeezenet",
+    "resolution": 224,
+    "mean_ms": 21.58,
+    "std_ms": 2.1,
+    "p99_ms": 25.84,
+    "fps": 46.3
+  }
+]

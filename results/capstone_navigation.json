@@ -1,0 +1,26 @@
+[
+  {
+    "terrain": "flat_ground",
+    "accuracy": 1.0,
+    "correct": 50,
+    "total": 50
+  },
+  {
+    "terrain": "uphill_slope",
+    "accuracy": 1.0,
+    "correct": 50,
+    "total": 50
+  },
+  {
+    "terrain": "rough_terrain",
+    "accuracy": 0.94,
+    "correct": 47,
+    "total": 50
+  },
+  {
+    "terrain": "hazard",
+    "accuracy": 1.0,
+    "correct": 50,
+    "total": 50
+  }
+]
