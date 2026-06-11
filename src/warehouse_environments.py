@@ -9,31 +9,20 @@
 #   3 = Blocked Path
 #   4 = Cross-Aisle Junction
 #
-# Each factory function:
-#   - accepts a seed for reproducibility
-#   - sets up gravity + ground plane
-#   - builds the scene
-#   - loads the robot at [0, 0, 0.5]
-#   - returns robot_id
-#
-# Usage:
-#   client = p.connect(p.DIRECT)
-#   robot_id = create_open_aisle(seed=42)
-#   ... collect frames ...
-#   p.disconnect()
-#
-# CHANGES FROM v1:
-#   - Class 2 (Pick Station): Floor marker changed from blue to ORANGE.
-#     Added large vertical orange panel at z=0.45 (camera-visible height).
-#     Scanner post made thicker (r=0.07) and taller (h=1.2).
-#     The flat floor marker is kept but enlarged so it reads in wide shots.
-#     Orange was chosen because it is not used by any other class
-#     (yellow=Open Aisle, red=Blocked Path, grey=shelves) — maximum contrast.
-#
-#   - Class 4 (Cross-Aisle Junction): Junction opening moved from x=4 to x=2
-#     so the lateral side aisles fill the camera FOV from the robot's position.
-#     White floor cross-lines added at the junction centre for a strong
-#     structural cue. Both T-junction and +-junction variants preserved.
+# CHANGELOG:
+#   v1  — Initial design (blue floor marker, junction at x=4, FOV=60)
+#   v2  — Pick Station: blue->orange, added vertical panel + bigger post
+#          Junction: opening moved to x=2, FOV widened to 90
+#   v3  — Junction: robot spawned INSIDE junction centre (x=4,y=0) so lateral
+#          branches fill left/right FOV immediately. Hazard corner posts added
+#          as near-field unique cue. FOV restored to 70 (90 showed too much
+#          robot body). All other classes unchanged.
+#   v4  — Junction: branch shelves start at y=±2, shelf-end cap panels added,
+#          hazard posts moved to y=±1.8, floor cross recentered at x=4.0.
+#   v5  — __main__: single consistent camera for ALL classes (same FOV=70,
+#          same offsets) — matches the one physical camera used in live demo.
+#          Robot hidden via changeVisualShape alpha=0 on all links for all
+#          classes — robot body must never appear in training frames.
 
 import pybullet as p
 import pybullet_data
@@ -69,7 +58,7 @@ def create_box(pos, half_extents, color, orientation=None):
 
 
 def create_cylinder(pos, radius, height, color):
-    """Create a static cylinder (used for scanner posts at pick stations)."""
+    """Create a static cylinder (scanner posts, hazard posts)."""
     col = p.createCollisionShape(p.GEOM_CYLINDER, radius=radius, height=height)
     vis = p.createVisualShape(p.GEOM_CYLINDER, radius=radius, length=height, rgbaColor=color)
     return p.createMultiBody(
@@ -89,10 +78,7 @@ def _load_robot(start_pos=None, start_yaw=0.0):
 
 
 def _add_shelf_row(x_start, x_end, y_pos, shelf_height, shelf_color, step=1.0):
-    """
-    Add a continuous row of shelf units along the x-axis at a fixed y position.
-    Each shelf unit is one box. Returns list of body IDs.
-    """
+    """Add a continuous row of shelf units along the x-axis."""
     ids = []
     x = x_start
     while x <= x_end:
@@ -106,10 +92,7 @@ def _add_shelf_row(x_start, x_end, y_pos, shelf_height, shelf_color, step=1.0):
 
 
 def _add_floor_tape(x_start, x_end, y_pos, color, tape_width=0.12):
-    """
-    Add flat floor tape strips (thin flat boxes lying on the ground).
-    Used for yellow tape in open aisles and red tape in blocked paths.
-    """
+    """Add flat floor tape strips lying on the ground."""
     ids = []
     x = x_start
     while x <= x_end:
@@ -123,267 +106,156 @@ def _add_floor_tape(x_start, x_end, y_pos, color, tape_width=0.12):
 
 
 # ===========================================================================
-# CLASS 0 — OPEN AISLE (2 seeds)
+# CLASS 0 — OPEN AISLE
 # ===========================================================================
 
 def create_open_aisle(seed=42):
     """
-    Wide corridor with grey shelving units on both sides and yellow floor
-    tape along both edges. Clear path ahead.
-
-    Visual signature: Yellow tape on floor edges + wide gap (4 units) + depth.
+    Wide corridor, grey shelves on both sides, yellow floor tape on edges.
+    Visual signature: Yellow tape + wide 4-unit gap + clear depth.
     Robot response: Full speed (0.15 units/step).
-
-    Seed variation: shelf height, shelf color brightness, tape length.
     """
     _setup_base(seed)
 
     shelf_height = random.uniform(0.7, 1.0)
-    shelf_gray = random.uniform(0.45, 0.65)
-    shelf_color = [shelf_gray, shelf_gray, shelf_gray, 1.0]
+    shelf_gray   = random.uniform(0.45, 0.65)
+    shelf_color  = [shelf_gray, shelf_gray, shelf_gray, 1.0]
     aisle_length = 18
 
-    # Two parallel shelf rows, 4 units apart (wide aisle)
-    _add_shelf_row(
-        x_start=-1, x_end=aisle_length,
-        y_pos=-2.0,
-        shelf_height=shelf_height,
-        shelf_color=shelf_color,
-        step=1.0
-    )
-    _add_shelf_row(
-        x_start=-1, x_end=aisle_length,
-        y_pos=2.0,
-        shelf_height=shelf_height,
-        shelf_color=shelf_color,
-        step=1.0
-    )
+    _add_shelf_row(-1, aisle_length, -2.0, shelf_height, shelf_color)
+    _add_shelf_row(-1, aisle_length,  2.0, shelf_height, shelf_color)
 
-    # Yellow floor tape strips along both edges (OSHA: yellow = aisle marking)
     yellow = [1.0, 0.85, 0.0, 1.0]
-    _add_floor_tape(x_start=0, x_end=aisle_length, y_pos=-1.6, color=yellow)
-    _add_floor_tape(x_start=0, x_end=aisle_length, y_pos=1.6,  color=yellow)
+    _add_floor_tape(0, aisle_length, -1.6, yellow)
+    _add_floor_tape(0, aisle_length,  1.6, yellow)
 
-    # End wall so camera sees something at depth
-    create_box(
-        [aisle_length + 0.5, 0, shelf_height / 2],
-        [0.1, 3.0, shelf_height / 2],
-        [0.5, 0.5, 0.5, 1.0]
-    )
+    create_box([aisle_length + 0.5, 0, shelf_height / 2],
+               [0.1, 3.0, shelf_height / 2], [0.5, 0.5, 0.5, 1.0])
 
-    robot_id = _load_robot(start_pos=[0, 0, 0.5], start_yaw=0.0)
-    return robot_id
+    return _load_robot(start_pos=[0, 0, 0.5], start_yaw=0.0)
 
 
 # ===========================================================================
-# CLASS 1 — NARROW AISLE (2 seeds)
+# CLASS 1 — NARROW AISLE
 # ===========================================================================
 
 def create_narrow_aisle(seed=42):
     """
-    Tight corridor with tall shelving units very close on both sides.
-    No floor tape. Robot barely fits through.
-
-    Visual signature: Shelves filling left+right FOV, narrow 1.8-unit gap.
+    Tight tunnel, tall shelves very close on both sides, no floor tape.
+    Visual signature: Shelves dominating left+right FOV, narrow 1.8-unit gap.
     Robot response: Half speed (0.08), center-seeking.
-
-    Seed variation: shelf height (taller than open aisle), aisle width variation.
     """
     _setup_base(seed)
 
-    shelf_height = random.uniform(1.1, 1.5)
-    shelf_gray = random.uniform(0.35, 0.55)
-    shelf_color = [shelf_gray, shelf_gray + 0.05, shelf_gray, 1.0]
-
+    shelf_height     = random.uniform(1.1, 1.5)
+    shelf_gray       = random.uniform(0.35, 0.55)
+    shelf_color      = [shelf_gray, shelf_gray + 0.05, shelf_gray, 1.0]
     aisle_half_width = random.uniform(0.85, 1.0)
-    aisle_length = 18
+    aisle_length     = 18
 
-    _add_shelf_row(
-        x_start=-1, x_end=aisle_length,
-        y_pos=-aisle_half_width - 0.3,
-        shelf_height=shelf_height,
-        shelf_color=shelf_color,
-        step=1.0
-    )
-    _add_shelf_row(
-        x_start=-1, x_end=aisle_length,
-        y_pos=aisle_half_width + 0.3,
-        shelf_height=shelf_height,
-        shelf_color=shelf_color,
-        step=1.0
-    )
+    _add_shelf_row(-1, aisle_length, -(aisle_half_width + 0.3), shelf_height, shelf_color)
+    _add_shelf_row(-1, aisle_length,   aisle_half_width + 0.3,  shelf_height, shelf_color)
 
-    # Inventory boxes on shelves for visual variety
     box_colors = [
-        [0.8, 0.3, 0.1, 1.0],   # Orange box
-        [0.2, 0.5, 0.8, 1.0],   # Blue box
-        [0.7, 0.7, 0.2, 1.0],   # Yellow box
+        [0.8, 0.3, 0.1, 1.0],
+        [0.2, 0.5, 0.8, 1.0],
+        [0.7, 0.7, 0.2, 1.0],
     ]
     for x in range(1, aisle_length, 3):
-        color = random.choice(box_colors)
-        y_side = random.choice([-aisle_half_width - 0.3, aisle_half_width + 0.3])
-        create_box(
-            [x, y_side, shelf_height + 0.15],
-            [0.2, 0.2, 0.15],
-            color
-        )
+        color  = random.choice(box_colors)
+        y_side = random.choice([-(aisle_half_width + 0.3), aisle_half_width + 0.3])
+        create_box([x, y_side, shelf_height + 0.15], [0.2, 0.2, 0.15], color)
 
-    # End wall
-    create_box(
-        [aisle_length + 0.5, 0, shelf_height / 2],
-        [0.1, aisle_half_width + 0.8, shelf_height / 2],
-        [0.4, 0.4, 0.4, 1.0]
-    )
+    create_box([aisle_length + 0.5, 0, shelf_height / 2],
+               [0.1, aisle_half_width + 0.8, shelf_height / 2], [0.4, 0.4, 0.4, 1.0])
 
-    robot_id = _load_robot(start_pos=[0, 0, 0.5], start_yaw=0.0)
-    return robot_id
+    return _load_robot(start_pos=[0, 0, 0.5], start_yaw=0.0)
 
 
 # ===========================================================================
-# CLASS 2 — PICK STATION (2 seeds)  [FIXED v2]
+# CLASS 2 — PICK STATION
 # ===========================================================================
 
 def create_pick_station(seed=42):
     """
-    ORANGE floor marker + large vertical orange panel (camera-visible) +
-    vertical scanner post in center-foreground, shelf face close ahead.
-    This is where the robot stops to collect items.
+    Orange vertical panel + scanner post + close shelf face ahead.
 
-    FIX v2: Marker colour changed from blue to ORANGE.
-    Orange is unique — no other class uses it as a primary identifier:
-      - Class 0 uses yellow tape
-      - Class 3 uses red tape
-      - Shelves are grey throughout
-    Orange therefore gives the CNN an unambiguous colour signal.
+    Orange is unique across all classes:
+      yellow = Open Aisle tape
+      red    = Blocked Path tape
+      grey   = shelves everywhere
+      orange = Pick Station only  <-- unambiguous CNN signal
 
-    The flat floor marker alone was invisible from camera height (blind spot
-    directly in front of the robot). The fix adds a VERTICAL orange panel
-    at z=0.15–0.55, which sits squarely in the camera's forward FOV.
-    The floor marker is kept (enlarged) for wide-angle shots.
-
-    Visual signature: ORANGE vertical panel + scanner post + close shelf face.
+    Visual signature: Orange vertical panel + tall scanner post + shelf face.
     Robot response: Slow approach (0.04), full stop at marker.
-
-    Seed variation: post side offset, shelf color, marker panel width.
     """
     _setup_base(seed)
 
     shelf_height = random.uniform(0.9, 1.2)
-    shelf_color = [random.uniform(0.4, 0.6)] * 3 + [1.0]
+    shelf_color  = [random.uniform(0.4, 0.6)] * 3 + [1.0]
 
-    # Shelf face close ahead (robot approaching a shelf to pick)
     for y in [-1.5, -0.5, 0.5, 1.5]:
-        create_box(
-            [4.5, y, shelf_height / 2],
-            [0.3, 0.45, shelf_height / 2],
-            shelf_color
-        )
+        create_box([4.5, y, shelf_height / 2], [0.3, 0.45, shelf_height / 2], shelf_color)
 
-    # Inventory items on shelf face
     item_colors = [
-        [0.8, 0.2, 0.2, 1.0],   # Red item
-        [0.2, 0.7, 0.3, 1.0],   # Green item
-        [0.9, 0.6, 0.1, 1.0],   # Yellow-orange item
+        [0.8, 0.2, 0.2, 1.0],
+        [0.2, 0.7, 0.3, 1.0],
+        [0.9, 0.6, 0.1, 1.0],
     ]
     for i, y in enumerate([-1.2, 0.0, 1.2]):
-        create_box(
-            [4.2, y, shelf_height * 0.6],
-            [0.15, 0.2, 0.2],
-            item_colors[i % 3]
-        )
+        create_box([4.2, y, shelf_height * 0.6], [0.15, 0.2, 0.2], item_colors[i % 3])
 
-    # -----------------------------------------------------------------------
-    # ORANGE station marker — TWO components for maximum visibility:
-    #
-    # (A) Vertical panel: faces the camera directly, clearly visible from
-    #     robot height. This is the primary CNN signal for this class.
-    # (B) Floor footprint: enlarged flat marker on the ground for wide shots.
-    # -----------------------------------------------------------------------
-    ORANGE = [1.0, 0.45, 0.0, 1.0]   # Strong construction orange
+    ORANGE      = [1.0, 0.45, 0.0, 1.0]
+    panel_width = random.uniform(0.5, 0.7)
 
-    panel_width = random.uniform(0.5, 0.7)   # Seed variation in panel size
+    create_box([2.0, 0, 0.35], [0.05, panel_width, 0.25], ORANGE)
+    create_box([2.0, 0, 0.015], [0.55, 0.55, 0.015], ORANGE)
 
-    # (A) Vertical orange panel — robot sees this face-on
-    create_box(
-        [2.0, 0, 0.35],               # z=0.35 centres it in camera FOV
-        [0.05, panel_width, 0.25],    # Thin depth, wide, tall slab
-        ORANGE
-    )
+    post_y = random.uniform(-0.3, 0.3)
+    create_cylinder([2.2, post_y, 0.6], radius=0.07, height=1.2,
+                    color=[0.15, 0.15, 0.15, 1.0])
+    create_box([2.2, post_y, 1.25], [0.09, 0.09, 0.07], [0.9, 0.45, 0.0, 1.0])
 
-    # (B) Enlarged floor footprint — visible in wide-angle / overhead shots
-    create_box(
-        [2.0, 0, 0.015],
-        [0.55, 0.55, 0.015],
-        ORANGE
-    )
-
-    # -----------------------------------------------------------------------
-    # Scanner post — thicker and taller than v1 so it reads in frame
-    # -----------------------------------------------------------------------
-    post_y_offset = random.uniform(-0.3, 0.3)
-    create_cylinder(
-        pos=[2.2, post_y_offset, 0.6],
-        radius=0.07,       # Thicker than v1 (was 0.04)
-        height=1.2,        # Taller than v1 (was 0.8)
-        color=[0.15, 0.15, 0.15, 1.0]
-    )
-    # Scanner head at top of post
-    create_box(
-        [2.2, post_y_offset, 1.25],
-        [0.09, 0.09, 0.07],
-        [0.9, 0.45, 0.0, 1.0]   # Orange scanner head matches station colour
-    )
-
-    # Side walls to frame the station
     for x in range(0, 5):
         create_box([x, -2.2, 0.3], [0.05, 0.05, 0.3], [0.5, 0.5, 0.5, 1.0])
         create_box([x,  2.2, 0.3], [0.05, 0.05, 0.3], [0.5, 0.5, 0.5, 1.0])
 
-    robot_id = _load_robot(start_pos=[0, 0, 0.5], start_yaw=0.0)
-    return robot_id
+    return _load_robot(start_pos=[0, 0, 0.5], start_yaw=0.0)
 
 
 # ===========================================================================
-# CLASS 3 — BLOCKED PATH (2 seeds)
+# CLASS 3 — BLOCKED PATH
 # ===========================================================================
 
 def create_blocked_path(seed=42):
     """
-    Red floor tape strips + boxes/pallets filling 60-80% of aisle width.
-    Clearly impassable. Robot must stop and reroute.
-
-    Visual signature: Red tape + dense ground-level clutter + no clear depth.
+    Red floor tape + dense cardboard boxes filling the aisle. Impassable.
+    Visual signature: Red tape + ground-level clutter + no clear depth.
     Robot response: Full stop (0.0), trigger reroute signal.
-
-    Seed variation: box density, arrangement, box colors/sizes.
     """
     _setup_base(seed)
 
     shelf_height = random.uniform(0.7, 1.0)
-    shelf_color = [0.5, 0.5, 0.5, 1.0]
+    shelf_color  = [0.5, 0.5, 0.5, 1.0]
     aisle_length = 12
 
-    # Background shelf rows
     _add_shelf_row(-1, aisle_length, -2.5, shelf_height, shelf_color)
     _add_shelf_row(-1, aisle_length,  2.5, shelf_height, shelf_color)
 
-    # Red floor tape (OSHA: red = danger/stop zone)
     red = [0.9, 0.1, 0.1, 1.0]
-    _add_floor_tape(x_start=1, x_end=8, y_pos=-1.5, color=red)
-    _add_floor_tape(x_start=1, x_end=8, y_pos=0.0,  color=red)
-    _add_floor_tape(x_start=1, x_end=8, y_pos=1.5,  color=red)
+    _add_floor_tape(1, 8, -1.5, red)
+    _add_floor_tape(1, 8,  0.0, red)
+    _add_floor_tape(1, 8,  1.5, red)
 
-    # Boxes and pallets blocking the path
-    num_boxes = random.randint(8, 14)
     box_colors_pool = [
-        [0.6, 0.5, 0.35, 1.0],   # Cardboard brown
-        [0.55, 0.5, 0.3, 1.0],   # Tan
-        [0.4, 0.4, 0.4, 1.0],    # Grey pallet
-        [0.7, 0.6, 0.3, 1.0],    # Light brown
+        [0.6, 0.5, 0.35, 1.0],
+        [0.55, 0.5, 0.3, 1.0],
+        [0.4, 0.4, 0.4, 1.0],
+        [0.7, 0.6, 0.3, 1.0],
     ]
 
-    placed = 0
-    attempts = 0
+    placed, attempts = 0, 0
+    num_boxes = random.randint(8, 14)
     while placed < num_boxes and attempts < 100:
         attempts += 1
         x = random.uniform(1.5, 6.5)
@@ -391,120 +263,106 @@ def create_blocked_path(seed=42):
         w = random.uniform(0.2, 0.5)
         d = random.uniform(0.2, 0.4)
         h = random.uniform(0.2, 0.55)
-        color = random.choice(box_colors_pool)
-        create_box([x, y, h / 2], [w / 2, d / 2, h / 2], color)
+        create_box([x, y, h / 2], [w / 2, d / 2, h / 2], random.choice(box_colors_pool))
         placed += 1
 
-    # Stacked boxes for height variation
     for _ in range(random.randint(2, 4)):
-        x = random.uniform(2.0, 5.0)
-        y = random.uniform(-1.2, 1.2)
-        h_bottom = random.uniform(0.3, 0.5)
-        h_top = random.uniform(0.2, 0.35)
-        color = random.choice(box_colors_pool)
-        create_box([x, y, h_bottom / 2], [0.3, 0.25, h_bottom / 2], color)
-        create_box([x, y, h_bottom + h_top / 2], [0.25, 0.2, h_top / 2], color)
+        x  = random.uniform(2.0, 5.0)
+        y  = random.uniform(-1.2, 1.2)
+        hb = random.uniform(0.3, 0.5)
+        ht = random.uniform(0.2, 0.35)
+        c  = random.choice(box_colors_pool)
+        create_box([x, y, hb / 2],      [0.3, 0.25, hb / 2], c)
+        create_box([x, y, hb + ht / 2], [0.25, 0.2, ht / 2], c)
 
-    robot_id = _load_robot(start_pos=[0, 0, 0.5], start_yaw=0.0)
-    return robot_id
+    return _load_robot(start_pos=[0, 0, 0.5], start_yaw=0.0)
 
 
 # ===========================================================================
-# CLASS 4 — CROSS-AISLE JUNCTION (2 seeds)  [FIXED v2]
+# CLASS 4 — CROSS-AISLE JUNCTION
 # ===========================================================================
 
 def create_cross_aisle_junction(seed=42):
     """
-    Main aisle opens into a wider space with shelf rows visible branching
-    left AND right. Multiple directions visible simultaneously from the
-    robot's camera.
+    Robot spawns INSIDE the junction centre so lateral branch aisles
+    immediately fill the left and right sides of the camera frame.
 
-    FIX v2: Junction opening moved from x=4 to x=2 (much closer to robot).
-    At the old distance (x=4+) the lateral openings were at the far edge of
-    the camera's FOV and looked almost identical to an open aisle. Moving the
-    opening to x=2 means the left and right branch aisles fill a large portion
-    of the left and right sides of the frame — making the lateral structure
-    immediately obvious to the CNN.
+    Visual signature:
+      - Shelf-end cap panels immediately left and right
+      - Hazard corner posts (yellow bands on dark cylinders) close in frame
+      - White floor cross underfoot
+      - Forward aisle (plus) or end wall (T) visible ahead
+      - Approach aisle visible behind
 
-    White floor cross-lines added at the junction centre (x=3.0) as an
-    additional structural cue — no other class has this floor marking.
-
-    Visual signature: Lateral open space filling left+right frame edges +
-                      white floor cross at junction + multi-direction shelves.
     Robot response: Reduced speed (0.06), yield logic activated.
-
-    Seed variation: T-junction vs +-junction, shelf height, shelf brightness.
+    Seed variation: plus-junction (even seed) vs T-junction (odd seed).
     """
     _setup_base(seed)
 
-    shelf_height = random.uniform(0.75, 1.0)
-    shelf_color = [random.uniform(0.45, 0.6)] * 3 + [1.0]
+    shelf_height  = random.uniform(0.75, 1.0)
+    shelf_color   = [random.uniform(0.45, 0.6)] * 3 + [1.0]
+    junction_type = 'plus' if seed % 2 == 0 else 'T'
 
-    junction_type = random.choice(['T', 'plus'])
+    # --- Approach aisle BEHIND the robot (x = -2 to 3) ---
+    for xi in range(-2, 4):
+        create_box([float(xi), -2.0, shelf_height / 2],
+                   [0.45, 0.3, shelf_height / 2], shelf_color)
+        create_box([float(xi),  2.0, shelf_height / 2],
+                   [0.45, 0.3, shelf_height / 2], shelf_color)
 
-    # -----------------------------------------------------------------------
-    # Approach aisle: SHORT — only 2 units before the junction opens.
-    # This ensures the lateral openings are close enough to fill the FOV.
-    # -----------------------------------------------------------------------
-    for x in range(-1, 2):
-        create_box([x, -2.0, shelf_height / 2], [0.45, 0.3, shelf_height / 2], shelf_color)
-        create_box([x,  2.0, shelf_height / 2], [0.45, 0.3, shelf_height / 2], shelf_color)
+    # --- Shelf-end cap panels at junction mouth (left and right) ---
+    cap_color = [random.uniform(0.35, 0.5)] * 3 + [1.0]
+    for x_cap in [3.5, 4.5]:
+        create_box([x_cap, -2.0, shelf_height / 2],
+                   [0.08, 0.5, shelf_height / 2], cap_color)
+        create_box([x_cap,  2.0, shelf_height / 2],
+                   [0.08, 0.5, shelf_height / 2], cap_color)
 
-    # -----------------------------------------------------------------------
-    # Junction opening at x=2.
-    # Left branch: shelf rows running in the -Y direction from the opening.
-    # Right branch: shelf rows running in the +Y direction from the opening.
-    # The inner wall of each branch (x=2.5) is what the camera sees to its
-    # left and right — clearly different from a straight aisle.
-    # -----------------------------------------------------------------------
+    # --- Left branch aisle (shelves running in -Y direction) ---
+    for yi in range(2, 10):
+        y = -float(yi)
+        create_box([4.0, y, shelf_height / 2],
+                   [0.45, 0.3, shelf_height / 2], shelf_color)
+        create_box([8.0, y, shelf_height / 2],
+                   [0.45, 0.3, shelf_height / 2], shelf_color)
 
-    # Left branch (negative Y)
-    for y_step in range(0, 6):
-        y = -(2.5 + y_step * 1.0)
-        create_box([2.5, y, shelf_height / 2], [0.45, 0.3, shelf_height / 2], shelf_color)
-        create_box([6.5, y, shelf_height / 2], [0.45, 0.3, shelf_height / 2], shelf_color)
+    # --- Right branch aisle (shelves running in +Y direction) ---
+    for yi in range(2, 10):
+        y = float(yi)
+        create_box([4.0, y, shelf_height / 2],
+                   [0.45, 0.3, shelf_height / 2], shelf_color)
+        create_box([8.0, y, shelf_height / 2],
+                   [0.45, 0.3, shelf_height / 2], shelf_color)
 
-    # Right branch (positive Y)
-    for y_step in range(0, 6):
-        y = (2.5 + y_step * 1.0)
-        create_box([2.5, y, shelf_height / 2], [0.45, 0.3, shelf_height / 2], shelf_color)
-        create_box([6.5, y, shelf_height / 2], [0.45, 0.3, shelf_height / 2], shelf_color)
-
-    # -----------------------------------------------------------------------
-    # Forward continuation (seed-dependent junction type)
-    # -----------------------------------------------------------------------
+    # --- Forward: continuation aisle or end wall ---
     if junction_type == 'plus':
-        # + junction: main aisle continues ahead past the opening
-        for x in range(8, 16):
-            create_box([x, -2.0, shelf_height / 2], [0.45, 0.3, shelf_height / 2], shelf_color)
-            create_box([x,  2.0, shelf_height / 2], [0.45, 0.3, shelf_height / 2], shelf_color)
+        for xi in range(5, 16):
+            create_box([float(xi), -2.0, shelf_height / 2],
+                       [0.45, 0.3, shelf_height / 2], shelf_color)
+            create_box([float(xi),  2.0, shelf_height / 2],
+                       [0.45, 0.3, shelf_height / 2], shelf_color)
     else:
-        # T junction: wall closes off the forward direction
-        create_box([8.5, 0, shelf_height / 2], [0.3, 5.0, shelf_height / 2], shelf_color)
+        create_box([9.0, 0.0, shelf_height / 2],
+                   [0.3, 5.0, shelf_height / 2], shelf_color)
 
-    # -----------------------------------------------------------------------
-    # White floor cross-lines at junction centre (x=3.0).
-    # Strong structural cue unique to this class — no other class uses white
-    # floor markings. The CNN will learn to associate these with junctions.
-    # -----------------------------------------------------------------------
+    # --- Hazard corner posts at y=±1.8 ---
+    YELLOW = [1.0, 0.85, 0.0, 1.0]
+    DARK   = [0.15, 0.15, 0.15, 1.0]
+    for cx, cy in [(3.5, -1.8), (3.5, 1.8), (4.5, -1.8), (4.5, 1.8)]:
+        create_cylinder([cx, cy, 0.5], radius=0.06, height=1.0, color=DARK)
+        create_box([cx, cy, 0.75], [0.07, 0.07, 0.12], YELLOW)
+
+    # --- White floor cross at robot position x=4.0 ---
     WHITE = [0.92, 0.92, 0.92, 1.0]
+    create_box([4.0, 0.0, 0.012], [2.0, 0.10, 0.012], WHITE)
+    create_box([4.0, 0.0, 0.012], [0.10, 2.5, 0.012], WHITE)
 
-    # Longitudinal centre line (forward direction)
-    create_box([3.5, 0.0, 0.012], [1.4, 0.08, 0.012], WHITE)
-
-    # Transverse line (left-right direction) — the cross-bar
-    create_box([3.0, 0.0, 0.012], [0.08, 2.2, 0.012], WHITE)
-
-    # Short tick marks pointing into each branch
-    create_box([3.0, -1.8, 0.012], [0.08, 0.5, 0.012], WHITE)
-    create_box([3.0,  1.8, 0.012], [0.08, 0.5, 0.012], WHITE)
-
-    robot_id = _load_robot(start_pos=[0, 0, 0.5], start_yaw=0.0)
-    return robot_id
+    # --- Robot spawns AT junction centre, facing forward (+X) ---
+    return _load_robot(start_pos=[4.0, 0.0, 0.5], start_yaw=0.0)
 
 
 # ===========================================================================
-# CONVENIENCE: SCENE REGISTRY
+# SCENE REGISTRY
 # ===========================================================================
 
 SCENE_CLASSES = {
@@ -522,14 +380,7 @@ SEEDS = {
 
 
 def create_environment(class_idx, seed=42):
-    """
-    Convenience wrapper. Creates the environment for the given class index.
-    Returns robot_id.
-
-    Example:
-        client = p.connect(p.DIRECT)
-        robot_id = create_environment(class_idx=2, seed=42)
-    """
+    """Factory wrapper. Returns robot_id."""
     if class_idx not in SCENE_CLASSES:
         raise ValueError(f"Unknown class index {class_idx}. Must be 0-4.")
     name, fn = SCENE_CLASSES[class_idx]
@@ -537,7 +388,7 @@ def create_environment(class_idx, seed=42):
 
 
 # ===========================================================================
-# QUICK TEST — run this file directly to verify all environments load
+# QUICK TEST — python src/warehouse_environments.py
 # ===========================================================================
 
 if __name__ == '__main__':
@@ -546,7 +397,6 @@ if __name__ == '__main__':
     import os
 
     os.makedirs('preview_images', exist_ok=True)
-
     print("Testing all 5 environments with 2 seeds each...\n")
 
     for class_idx, (class_name, factory_fn) in SCENE_CLASSES.items():
@@ -556,21 +406,38 @@ if __name__ == '__main__':
             robot_id = factory_fn(seed=seed_val)
             p.stepSimulation()
 
-            # Capture one camera frame from robot's forward-facing camera
+            # Hide robot body on ALL classes — the camera represents the
+            # robot's POV. The robot body must never appear in training frames
+            # or live demo frames. Alpha=0 makes every link fully transparent.
+            for link_idx in range(-1, p.getNumJoints(robot_id)):
+                p.changeVisualShape(robot_id, link_idx, rgbaColor=[0, 0, 0, 0])
+
             pos, orient = p.getBasePositionAndOrientation(robot_id)
             rot = np.array(p.getMatrixFromQuaternion(orient)).reshape(3, 3)
-            cam_pos = [pos[0], pos[1], pos[2] + 0.3]
             fwd = rot @ np.array([1, 0, 0])
-            target = [cam_pos[0] + fwd[0], cam_pos[1] + fwd[1], cam_pos[2] + fwd[2]]
+
+            # Single consistent camera for ALL classes — matches the one
+            # physical camera used in the live demo. Camera is raised 0.8
+            # units above robot and offset 0.3 back, looking 3 units ahead.
+            cam_pos = [pos[0] - 0.3 * fwd[0],
+                       pos[1] - 0.3 * fwd[1],
+                       pos[2] + 0.8]
+            target  = [pos[0] + fwd[0] * 3.0,
+                       pos[1] + fwd[1] * 3.0,
+                       pos[2] + 0.2]
+
             view = p.computeViewMatrix(cam_pos, target, [0, 0, 1])
-            proj = p.computeProjectionMatrixFOV(fov=90, aspect=1.0, nearVal=0.1, farVal=100)
+            proj = p.computeProjectionMatrixFOV(fov=70, aspect=1.0,
+                                                nearVal=0.1, farVal=100)
             _, _, rgba, _, _ = p.getCameraImage(224, 224, view, proj,
                                                 renderer=p.ER_TINY_RENDERER)
             rgb = np.array(rgba, dtype=np.uint8).reshape(224, 224, 4)[:, :, :3]
 
-            fname = f'preview_images/class{class_idx}_{class_name}_{seed_name}.jpg'
+            fname = (f'preview_images/class{class_idx}'
+                     f'_{class_name}_{seed_name}.jpg')
             cv2.imwrite(fname, cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
-            print(f"  Class {class_idx} ({class_name}) | {seed_name} (seed={seed_val}) -> {fname}")
+            print(f"  Class {class_idx} ({class_name}) | "
+                  f"{seed_name} (seed={seed_val}) -> {fname}")
 
             p.disconnect()
 
