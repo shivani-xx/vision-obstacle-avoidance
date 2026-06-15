@@ -1,0 +1,50 @@
+[
+  {
+    "model": "mobilenetv3",
+    "resolution": 128,
+    "parameters": 1522981,
+    "best_val_acc": 1.0,
+    "test_acc": 1.0,
+    "training_time_sec": 120.2
+  },
+  {
+    "model": "mobilenetv3",
+    "resolution": 224,
+    "parameters": 1522981,
+    "best_val_acc": 1.0,
+    "test_acc": 0.9984,
+    "training_time_sec": 171.5
+  },
+  {
+    "model": "efficientnet",
+    "resolution": 128,
+    "parameters": 4013953,
+    "best_val_acc": 1.0,
+    "test_acc": 1.0,
+    "training_time_sec": 164.7
+  },
+  {
+    "model": "efficientnet",
+    "resolution": 224,
+    "parameters": 4013953,
+    "best_val_acc": 1.0,
+    "test_acc": 0.9984,
+    "training_time_sec": 359.5
+  },
+  {
+    "model": "squeezenet",
+    "resolution": 128,
+    "parameters": 725061,
+    "best_val_acc": 1.0,
+    "test_acc": 1.0,
+    "training_time_sec": 99.5
+  },
+  {
+    "model": "squeezenet",
+    "resolution": 224,
+    "parameters": 725061,
+    "best_val_acc": 1.0,
+    "test_acc": 1.0,
+    "training_time_sec": 159.9
+  }
+]
