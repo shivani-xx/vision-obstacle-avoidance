@@ -80,7 +80,6 @@ def setup_easy_environment(seed=42):
             [0.6, 0.6, 0.6, 1]
         )
 
-    # Few scattered obstacles
     for _ in range(random.randint(5, 8)):
 
         x = random.uniform(-3, 18)
@@ -105,11 +104,7 @@ def setup_easy_environment(seed=42):
 
 def setup_medium_environment(seed=42):
 
-    """
-    Narrower passages with more obstacles.
-    Robot must turn and navigate carefully.
-    """
-
+    
     random.seed(seed)
 
     p.setAdditionalSearchPath(pybullet_data.getDataPath())
@@ -186,10 +181,6 @@ def setup_medium_environment(seed=42):
 
 def setup_hard_environment(seed=42):
 
-    """
-    Dense clutter and maze-like layout.
-    Very difficult navigation environment.
-    """
 
     random.seed(seed)
 
@@ -270,10 +261,6 @@ def setup_hard_environment(seed=42):
 
 def create_environment(difficulty='medium', seed=42):
 
-    """
-    Factory function used by Day 5 deployment.
-    Creates environment based on difficulty.
-    """
 
     if difficulty == 'easy':
         return setup_easy_environment(seed)

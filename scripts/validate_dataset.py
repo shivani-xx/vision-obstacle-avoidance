@@ -1,16 +1,4 @@
 # scripts/validate_dataset.py
-# D7: Data Validation — Warehouse Scene Classification Dataset
-# Capstone Day 9 | Intern: Shivani | Purple AI Labs Ltd
-#
-# Produces:
-#   results/D7_class_distribution.png  — bar chart of frame counts per class
-#   results/D7_sample_grid.png         — 4 random samples per class (20 images)
-#   results/D7_split_summary.txt       — train/val/test counts per class
-#
-# Run after collect_warehouse_data.py completes.
-#
-# Usage:
-#   python scripts/validate_dataset.py
 
 import os
 import sys
@@ -33,7 +21,7 @@ RESULTS_DIR = 'results'
 
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
-# Colour palette for the 5 classes (matches the physical scene colors)
+
 CLASS_COLORS = {
     0: '#F59E0B',   # Yellow  — Open Aisle (yellow floor tape)
     1: '#6B7280',   # Grey    — Narrow Aisle (grey shelves dominate)
@@ -51,30 +39,29 @@ def check_dataset_exists():
 
 
 def validate_basic(df):
-    """Basic integrity checks on the CSV."""
+    
     print('--- Basic Validation ---')
     print(f'Total frames : {len(df)}')
     print(f'Columns      : {list(df.columns)}')
 
-    # Check for missing files
+
     missing = 0
     for fname in df['filename']:
         if not os.path.exists(os.path.join(IMG_DIR, fname)):
             missing += 1
     print(f'Missing images: {missing}')
 
-    # Check all class indices are valid
     invalid = df[~df['class_idx'].isin(SCENE_CLASSES.keys())]
     print(f'Invalid labels: {len(invalid)}')
 
     if missing == 0 and len(invalid) == 0:
-        print('✓ All files present and labels valid\n')
+        print(' All files present and labels valid\n')
     else:
-        print('✗ Issues found — fix before training\n')
+        print(' Issues found — fix before training\n')
 
 
 def plot_class_distribution(df):
-    """D7: Class distribution bar chart."""
+    
     counts = [int((df['class_idx'] == i).sum()) for i in SCENE_CLASSES]
     names  = [SCENE_CLASSES[i].replace('_', '\n') for i in SCENE_CLASSES]
     colors = [CLASS_COLORS[i] for i in SCENE_CLASSES]
@@ -82,14 +69,12 @@ def plot_class_distribution(df):
     fig, ax = plt.subplots(figsize=(10, 5))
     bars = ax.bar(names, counts, color=colors, edgecolor='white', linewidth=0.8)
 
-    # Add count labels on bars
     for bar, count in zip(bars, counts):
         ax.text(bar.get_x() + bar.get_width() / 2,
                 bar.get_height() + 15,
                 f'{count}', ha='center', va='bottom',
                 fontsize=11, fontweight='bold', color='#1F2937')
 
-    # Balance lines (±15% of mean)
     mean_count = np.mean(counts)
     ax.axhline(mean_count, color='#6B7280', linestyle='--',
                linewidth=1.5, label=f'Mean ({mean_count:.0f})')
@@ -114,7 +99,7 @@ def plot_class_distribution(df):
 
 
 def plot_sample_grid(df):
-    """D7: 4 random samples per class — 5 rows × 4 cols = 20 images."""
+    
     SAMPLES_PER_CLASS = 4
     fig, axes = plt.subplots(
         len(SCENE_CLASSES), SAMPLES_PER_CLASS,
@@ -135,7 +120,7 @@ def plot_sample_grid(df):
                 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                 ax.imshow(img)
 
-            # Class label on leftmost column
+            
             if col == 0:
                 ax.set_ylabel(
                     f'[{class_idx}] {class_name.replace("_", " ").title()}',
@@ -144,7 +129,7 @@ def plot_sample_grid(df):
                 )
             ax.axis('off')
 
-            # Thin border in class color
+            
             for spine in ax.spines.values():
                 spine.set_edgecolor(CLASS_COLORS[class_idx])
                 spine.set_linewidth(2)
@@ -158,7 +143,7 @@ def plot_sample_grid(df):
 
 
 def validate_splits(df):
-    """D7: Verify stratified 70/15/15 splits and print per-class breakdown."""
+    
     train_df, val_df, test_df = make_stratified_splits(LABELS_CSV)
 
     total = len(df)
@@ -184,13 +169,11 @@ def validate_splits(df):
             **{SCENE_CLASSES[i]: counts_per_class[i] for i in SCENE_CLASSES}
         })
 
-    # Save split summary
     summary_df = pd.DataFrame(split_summary)
     out = os.path.join(RESULTS_DIR, 'D7_split_summary.csv')
     summary_df.to_csv(out, index=False)
     print(f'\nSaved: {out}')
 
-    # Check ratios
     train_ratio = len(train_df) / total
     val_ratio   = len(val_df)   / total
     test_ratio  = len(test_df)  / total
@@ -200,13 +183,12 @@ def validate_splits(df):
     if (0.68 <= train_ratio <= 0.72 and
             0.13 <= val_ratio <= 0.17 and
             0.13 <= test_ratio <= 0.17):
-        print('✓ Splits are within acceptable range of 70/15/15')
+        print(' Splits are within acceptable range of 70/15/15')
     else:
-        print('✗ Splits deviate from 70/15/15 — check make_stratified_splits()')
+        print(' Splits deviate from 70/15/15 — check make_stratified_splits()')
 
 
 def validate_dataloader():
-    """Verify the DataLoader works correctly for both resolutions."""
     print('\n--- DataLoader Validation ---')
     for res in [128, 224]:
         try:
@@ -219,13 +201,13 @@ def validate_dataloader():
             assert images.shape[3] == res
             assert labels.min() >= 0
             assert labels.max() <= 4
-            print(f'  ✓ Resolution {res}×{res}: batch shape {tuple(images.shape)} OK')
+            print(f'   Resolution {res}×{res}: batch shape {tuple(images.shape)} OK')
         except Exception as e:
-            print(f'  ✗ Resolution {res}×{res}: ERROR — {e}')
+            print(f'   Resolution {res}×{res}: ERROR — {e}')
 
 
 def print_augmentation_decisions():
-    """Print the augmentation justification for the D7 report."""
+    
     print('\n--- Augmentation Decisions (for report) ---')
     decisions = [
         ('HorizontalFlip',             'INCLUDED', 'Aisles look same mirrored'),
@@ -242,9 +224,6 @@ def print_augmentation_decisions():
         print(f'  {symbol} {aug:<30} {decision:<10} — {reason}')
 
 
-# ===========================================================================
-# MAIN
-# ===========================================================================
 
 if __name__ == '__main__':
     check_dataset_exists()
@@ -273,11 +252,4 @@ if __name__ == '__main__':
     print('\n' + '=' * 60)
     print('D7 VALIDATION COMPLETE')
     print(f'Charts saved to: {RESULTS_DIR}/')
-    print('  D7_class_distribution.png')
-    print('  D7_sample_grid.png')
-    print('  D7_split_summary.csv')
-    print('\nNext steps:')
-    print('  1. Open results/D7_sample_grid.png — verify images look correct')
-    print('  2. Upload data/warehouse_dataset/ to Google Drive')
-    print('  3. Begin Day 10 model training on Colab')
-    print('=' * 60)
+    

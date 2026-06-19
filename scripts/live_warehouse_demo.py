@@ -11,9 +11,6 @@ from PIL import Image
 
 from src.warehouse_environments import create_environment
 
-# --------------------------------------------------
-# CONFIG
-# --------------------------------------------------
 
 CLASS_NAMES = {
     0: 'open_aisle',
@@ -33,9 +30,6 @@ ACTION_MAP = {
 
 DEVICE = torch.device("cpu")
 
-# --------------------------------------------------
-# LOAD SQUEEZENET
-# --------------------------------------------------
 
 model = models.squeezenet1_1(weights=None)
 
@@ -56,9 +50,6 @@ model.eval()
 
 print("SqueezeNet loaded successfully")
 
-# --------------------------------------------------
-# TRANSFORM
-# --------------------------------------------------
 
 transform = transforms.Compose([
     transforms.Resize((224,224)),
@@ -69,9 +60,6 @@ transform = transforms.Compose([
     )
 ])
 
-# --------------------------------------------------
-# CAMERA
-# --------------------------------------------------
 
 def get_robot_camera(robot_id):
 
@@ -123,9 +111,6 @@ def get_robot_camera(robot_id):
 
     return rgb
 
-# --------------------------------------------------
-# PREDICT
-# --------------------------------------------------
 
 def predict_scene(image):
 
@@ -141,9 +126,6 @@ def predict_scene(image):
 
     return pred_idx
 
-# --------------------------------------------------
-# LIVE DEMO
-# --------------------------------------------------
 
 for class_idx in range(5):
 
@@ -153,7 +135,7 @@ for class_idx in range(5):
 
     robot_id = create_environment(
         class_idx=class_idx,
-        seed=42
+        seed=999
     )
 
     p.stepSimulation()

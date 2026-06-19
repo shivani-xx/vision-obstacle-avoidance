@@ -10,12 +10,7 @@ CLASS_NAMES = {
 
 
 def get_scene_label(class_idx):
-    """
-    Ground truth label for a warehouse frame.
-
-    Since environments are fully controlled, the environment class
-    is the ground truth label.
-    """
+    
     if class_idx not in CLASS_NAMES:
         raise ValueError(
             f"Unknown class_idx {class_idx}. Must be 0-4."
@@ -23,7 +18,6 @@ def get_scene_label(class_idx):
 
     return class_idx
 
-# src/scene_labeller.py
 
 CLASS_NAMES = {
     0: 'open_aisle',
@@ -35,12 +29,7 @@ CLASS_NAMES = {
 
 
 def get_scene_label(class_idx):
-    """
-    Ground truth label for a warehouse frame.
-
-    Since environments are fully controlled, the environment class
-    is the ground truth label.
-    """
+    
     if class_idx not in CLASS_NAMES:
         raise ValueError(
             f"Unknown class_idx {class_idx}. Must be 0-4."
