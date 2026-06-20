@@ -8,7 +8,7 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GroupShuffleSplit
 
 SCENE_CLASSES = {
     0: 'open_aisle',
@@ -95,26 +95,80 @@ class WarehouseSceneDataset(Dataset):
         return self.CLASS_NAMES[idx]
 
 
-def make_stratified_splits(labels_csv: str,train_ratio=0.70,val_ratio=0.15,test_ratio=0.15,random_state=42):
+def make_stratified_splits(
+    labels_csv: str,
+    train_ratio=0.70,
+    val_ratio=0.15,
+    test_ratio=0.15,
+    random_state=42
+):
 
     assert abs(train_ratio + val_ratio + test_ratio - 1.0) < 1e-6, \
         'Split ratios must sum to 1.0'
 
     df = pd.read_csv(labels_csv)
 
-    train_df, temp_df = train_test_split(
-        df,
+    groups = df['env_run']
+
+    # First split: train vs temp
+    gss1 = GroupShuffleSplit(
+        n_splits=1,
         test_size=(val_ratio + test_ratio),
-        stratify=df['class_idx'],
         random_state=random_state
     )
 
-    val_df, test_df = train_test_split(
-        temp_df,
-        test_size=(test_ratio / (val_ratio + test_ratio)),
-        stratify=temp_df['class_idx'],
+    train_idx, temp_idx = next(
+        gss1.split(df, groups=groups)
+    )
+
+    train_df = df.iloc[train_idx]
+    temp_df = df.iloc[temp_idx]
+
+    # Second split: val vs test
+    temp_groups = temp_df['env_run']
+
+    gss2 = GroupShuffleSplit(
+        n_splits=1,
+        test_size=(
+            test_ratio /
+            (val_ratio + test_ratio)
+        ),
         random_state=random_state
     )
+
+    val_idx, test_idx = next(
+        gss2.split(
+            temp_df,
+            groups=temp_groups
+        )
+    )
+
+    val_df = temp_df.iloc[val_idx]
+    test_df = temp_df.iloc[test_idx]
+
+    # Leakage checks
+    train_runs = set(
+        train_df['env_run'].unique()
+    )
+
+    val_runs = set(
+        val_df['env_run'].unique()
+    )
+
+    test_runs = set(
+        test_df['env_run'].unique()
+    )
+
+    assert train_runs.isdisjoint(val_runs), \
+        "LEAK: train/val share runs"
+
+    assert train_runs.isdisjoint(test_runs), \
+        "LEAK: train/test share runs"
+
+    assert val_runs.isdisjoint(test_runs), \
+        "LEAK: val/test share runs"
+
+    print("No leakage! Splits are clean.")
 
     return train_df, val_df, test_df
 
