@@ -4,6 +4,7 @@ import pybullet as p
 import pybullet_data
 import random
 import math
+import numpy as np
 
 
 def _setup_base(seed):
@@ -79,200 +80,791 @@ def _add_floor_tape(x_start, x_end, y_pos, color, tape_width=0.12):
 
 
 def create_open_aisle(seed=42):
-    
-    _setup_base(seed)
 
-    shelf_height = random.uniform(0.7, 1.0)
-    shelf_gray   = random.uniform(0.45, 0.65)
-    shelf_color  = [shelf_gray, shelf_gray, shelf_gray, 1.0]
+    _setup_base(seed)
+    random.seed(seed)
+
     aisle_length = 18
 
-    _add_shelf_row(-1, aisle_length, -2.0, shelf_height, shelf_color)
-    _add_shelf_row(-1, aisle_length,  2.0, shelf_height, shelf_color)
+    # ---------- Geometry variation ----------
+    left_width = random.uniform(1.6, 3.5)
+    right_width = random.uniform(1.6, 3.5)
 
+    shelf_height_left = random.uniform(0.7, 1.4)
+    shelf_height_right = random.uniform(0.7, 1.4)
+
+    shelf_palettes = [
+        [0.55, 0.55, 0.55, 1.0],  # gray
+        [0.35, 0.50, 0.35, 1.0],  # green
+        [0.40, 0.40, 0.60, 1.0],  # blue
+        [0.55, 0.45, 0.30, 1.0],  # brown
+    ]
+
+    shelf_color = random.choice(shelf_palettes)
+
+    # ---------- Left shelves ----------
+    gap_probability = random.uniform(0.10, 0.35)
+
+    for x in np.arange(-1, aisle_length, 1.0):
+
+        if random.random() < gap_probability:
+            continue
+
+        create_box(
+            [x, -left_width, shelf_height_left / 2],
+            [0.45, 0.3, shelf_height_left / 2],
+            shelf_color
+        )
+
+    # ---------- Right shelves ----------
+    for x in np.arange(-1, aisle_length, 1.0):
+
+        if random.random() < gap_probability:
+            continue
+
+        create_box(
+            [x, right_width, shelf_height_right / 2],
+            [0.45, 0.3, shelf_height_right / 2],
+            shelf_color
+        )
+
+    # ---------- Yellow safety tape ----------
     yellow = [1.0, 0.85, 0.0, 1.0]
-    _add_floor_tape(0, aisle_length, -1.6, yellow)
-    _add_floor_tape(0, aisle_length,  1.6, yellow)
 
-    create_box([aisle_length + 0.5, 0, shelf_height / 2],
-               [0.1, 3.0, shelf_height / 2], [0.5, 0.5, 0.5, 1.0])
+    _add_floor_tape(
+        0,
+        aisle_length,
+        -(left_width - 0.35),
+        yellow
+    )
 
-    return _load_robot(start_pos=[0, 0, 0.5], start_yaw=0.0)
+    _add_floor_tape(
+        0,
+        aisle_length,
+        (right_width - 0.35),
+        yellow
+    )
+
+    # ---------- Pallet colors ----------
+    pallet_colors = [
+        [0.7, 0.5, 0.2, 1.0],
+        [0.8, 0.2, 0.2, 1.0],
+        [0.2, 0.5, 0.8, 1.0],
+    ]
+
+    # ---------- Storage zones outside aisle ----------
+    for _ in range(random.randint(3, 8)):
+
+        create_box(
+            [
+                random.uniform(1, aisle_length - 1),
+                random.choice([
+                    -(left_width + random.uniform(0.8, 2.0)),
+                    right_width + random.uniform(0.8, 2.0)
+                ]),
+                random.uniform(0.15, 0.4)
+            ],
+            [
+                random.uniform(0.2, 0.6),
+                random.uniform(0.2, 0.6),
+                random.uniform(0.15, 0.5)
+            ],
+            random.choice(pallet_colors)
+        )
+
+    # ---------- Random side pallets ----------
+    for _ in range(random.randint(4, 12)):
+
+        side_y = random.choice([
+            random.uniform(
+                -(max(left_width, right_width) + 2.5),
+                -(max(left_width, right_width) + 1.0)
+            ),
+            random.uniform(
+                max(left_width, right_width) + 1.0,
+                max(left_width, right_width) + 2.5
+            )
+        ])
+
+        create_box(
+            [
+                random.uniform(0, aisle_length),
+                side_y,
+                0.2
+            ],
+            [0.25, 0.25, 0.2],
+            random.choice(pallet_colors)
+        )
+
+    # ---------- End wall ----------
+    wall_width = random.uniform(
+        max(left_width, right_width) + 0.5,
+        max(left_width, right_width) + 2.5
+    )
+
+    wall_color = random.choice([
+        [0.4, 0.4, 0.4, 1.0],
+        [0.3, 0.3, 0.5, 1.0],
+        [0.5, 0.4, 0.3, 1.0]
+    ])
+
+    create_box(
+        [
+            aisle_length + 0.5,
+            0,
+            max(shelf_height_left, shelf_height_right) / 2
+        ],
+        [
+            0.1,
+            wall_width,
+            max(shelf_height_left, shelf_height_right) / 2
+        ],
+        wall_color
+    )
+
+    return _load_robot(
+        start_pos=[0, 0, 0.5],
+        start_yaw=0.0
+    )
 
 
 
 
 def create_narrow_aisle(seed=42):
-   
+
     _setup_base(seed)
+    random.seed(seed)
 
-    shelf_height     = random.uniform(1.1, 1.5)
-    shelf_gray       = random.uniform(0.35, 0.55)
-    shelf_color      = [shelf_gray, shelf_gray + 0.05, shelf_gray, 1.0]
-    aisle_half_width = random.uniform(0.85, 1.0)
-    aisle_length     = 18
+    aisle_length = 18
 
-    _add_shelf_row(-1, aisle_length, -(aisle_half_width + 0.3), shelf_height, shelf_color)
-    _add_shelf_row(-1, aisle_length,   aisle_half_width + 0.3,  shelf_height, shelf_color)
+    # ---------- Narrow geometry ----------
+    aisle_half_width = random.uniform(0.65, 0.90)
 
-    box_colors = [
+    # ---------- Shelf variation ----------
+    left_height = random.uniform(1.4, 2.2)
+    right_height = random.uniform(1.4, 2.2)
+
+    shelf_palettes = [
+        [0.25, 0.35, 0.25, 1.0],   # dark green
+        [0.40, 0.40, 0.40, 1.0],   # gray
+        [0.35, 0.35, 0.55, 1.0],   # blue gray
+    ]
+
+    shelf_color = random.choice(shelf_palettes)
+
+    # ---------- Shelf rows ----------
+    for x in np.arange(-1, aisle_length, 1.0):
+
+        left_depth = random.uniform(0.30, 0.55)
+        right_depth = random.uniform(0.30, 0.55)
+
+        create_box(
+            [x, -(aisle_half_width + left_depth), left_height / 2],
+            [0.45, left_depth, left_height / 2],
+            shelf_color
+        )
+
+        create_box(
+            [x, aisle_half_width + right_depth, right_height / 2],
+            [0.45, right_depth, right_height / 2],
+            shelf_color
+        )
+
+    # ---------- Shelf cargo ----------
+    cargo_colors = [
         [0.8, 0.3, 0.1, 1.0],
         [0.2, 0.5, 0.8, 1.0],
         [0.7, 0.7, 0.2, 1.0],
+        [0.6, 0.3, 0.7, 1.0],
     ]
-    for x in range(1, aisle_length, 3):
-        color  = random.choice(box_colors)
-        y_side = random.choice([-(aisle_half_width + 0.3), aisle_half_width + 0.3])
-        create_box([x, y_side, shelf_height + 0.15], [0.2, 0.2, 0.15], color)
 
-    create_box([aisle_length + 0.5, 0, shelf_height / 2],
-               [0.1, aisle_half_width + 0.8, shelf_height / 2], [0.4, 0.4, 0.4, 1.0])
+    for _ in range(random.randint(20, 45)):
 
-    return _load_robot(start_pos=[0, 0, 0.5], start_yaw=0.0)
+        x = random.uniform(0, aisle_length)
+
+        side = random.choice([-1, 1])
+
+        y = side * (
+            aisle_half_width +
+            random.uniform(0.15, 0.45)
+        )
+
+        create_box(
+            [
+                x,
+                y,
+                random.uniform(0.6, max(left_height, right_height))
+            ],
+            [
+                random.uniform(0.10, 0.25),
+                random.uniform(0.10, 0.25),
+                random.uniform(0.10, 0.25)
+            ],
+            random.choice(cargo_colors)
+        )
+
+    # ---------- Shelf protrusions ----------
+    for _ in range(random.randint(8, 15)):
+
+        x = random.uniform(1, aisle_length - 1)
+
+        side = random.choice([-1, 1])
+
+        y = side * aisle_half_width
+
+        create_box(
+            [
+                x,
+                y,
+                random.uniform(0.5, min(left_height, right_height) - 0.2)
+            ],
+            [0.12, 0.12, 0.12],
+            random.choice(cargo_colors)
+        )
+
+    # ---------- End wall ----------
+    create_box(
+        [aisle_length + 0.5, 0, max(left_height, right_height) / 2],
+        [0.1, aisle_half_width + 0.8, max(left_height, right_height) / 2],
+        [0.35, 0.35, 0.35, 1.0]
+    )
+
+    return _load_robot(
+        start_pos=[0, 0, 0.5],
+        start_yaw=0.0
+    )
 
 
 
 def create_pick_station(seed=42):
-   
+
+    random.seed(seed)
+
     _setup_base(seed)
 
-    shelf_height = random.uniform(0.9, 1.2)
-    shelf_color  = [random.uniform(0.4, 0.6)] * 3 + [1.0]
+    # --------------------------------------------------
+    # Central pick station (ALWAYS visible)
+    # --------------------------------------------------
 
-    for y in [-1.5, -0.5, 0.5, 1.5]:
-        create_box([4.5, y, shelf_height / 2], [0.3, 0.45, shelf_height / 2], shelf_color)
+    station_x = 2.5
+    station_y = 0.0
 
-    item_colors = [
-        [0.8, 0.2, 0.2, 1.0],
-        [0.2, 0.7, 0.3, 1.0],
-        [0.9, 0.6, 0.1, 1.0],
-    ]
-    for i, y in enumerate([-1.2, 0.0, 1.2]):
-        create_box([4.2, y, shelf_height * 0.6], [0.15, 0.2, 0.2], item_colors[i % 3])
+    create_box(
+        [station_x, station_y, 0.4],
+        [0.8, 0.8, 0.4],
+        [1.0, 0.5, 0.0, 1]
+    )
 
-    ORANGE      = [1.0, 0.45, 0.0, 1.0]
-    panel_width = random.uniform(0.5, 0.7)
+    # --------------------------------------------------
+    # Back wall panels
+    # --------------------------------------------------
 
-    create_box([2.0, 0, 0.35], [0.05, panel_width, 0.25], ORANGE)
-    create_box([2.0, 0, 0.015], [0.55, 0.55, 0.015], ORANGE)
+    for panel_y in [-1.5, 0, 1.5]:
 
-    post_y = random.uniform(-0.3, 0.3)
-    create_cylinder([2.2, post_y, 0.6], radius=0.07, height=1.2,
-                    color=[0.15, 0.15, 0.15, 1.0])
-    create_box([2.2, post_y, 1.25], [0.09, 0.09, 0.07], [0.9, 0.45, 0.0, 1.0])
+        create_box(
+            [4.5, panel_y, 0.8],
+            [0.15, 0.8, 0.8],
+            [0.45, 0.45, 0.45, 1]
+        )
 
-    for x in range(0, 5):
-        create_box([x, -2.2, 0.3], [0.05, 0.05, 0.3], [0.5, 0.5, 0.5, 1.0])
-        create_box([x,  2.2, 0.3], [0.05, 0.05, 0.3], [0.5, 0.5, 0.5, 1.0])
+    # --------------------------------------------------
+    # Random inventory boxes
+    # --------------------------------------------------
 
-    return _load_robot(start_pos=[0, 0, 0.5], start_yaw=0.0)
+    box_count = random.randint(8, 20)
 
+    for _ in range(box_count):
+
+        x = random.uniform(0.5, 5.5)
+        y = random.uniform(-2.5, 2.5)
+
+        # keep area around station clear
+        if abs(x - station_x) < 1.2 and abs(y) < 1.0:
+            continue
+
+        size = random.uniform(0.15, 0.45)
+
+        color = [
+            random.uniform(0.2, 1.0),
+            random.uniform(0.2, 1.0),
+            random.uniform(0.2, 1.0),
+            1
+        ]
+
+        create_box(
+            [x, y, size / 2],
+            [size, size, size],
+            color
+        )
+
+    # --------------------------------------------------
+    # Random shelving
+    # --------------------------------------------------
+
+    shelf_count = random.randint(4, 10)
+
+    for _ in range(shelf_count):
+
+        side = random.choice([-1, 1])
+
+        x = random.uniform(0.5, 5.5)
+        y = side * random.uniform(1.5, 2.5)
+
+        height = random.uniform(0.8, 1.8)
+
+        create_box(
+            [x, y, height / 2],
+            [0.3, 0.8, height],
+            [0.35, 0.4, 0.35, 1]
+        )
+
+    # --------------------------------------------------
+    # Floor markers
+    # --------------------------------------------------
+
+    marker_count = random.randint(2, 8)
+
+    for _ in range(marker_count):
+
+        marker_x = random.uniform(0.5, 5.5)
+        marker_y = random.uniform(-2.5, 2.5)
+
+        create_box(
+            [marker_x, marker_y, 0.01],
+            [0.25, 0.25, 0.02],
+            [
+                random.uniform(0.5, 1.0),
+                random.uniform(0.5, 1.0),
+                0,
+                1
+            ]
+        )
+
+    return _load_robot(
+        start_pos=[0, 0, 0.5],
+        start_yaw=0.0
+    )
 
 
 def create_blocked_path(seed=42):
-    
+
     _setup_base(seed)
+    random.seed(seed)
 
-    shelf_height = random.uniform(0.7, 1.0)
-    shelf_color  = [0.5, 0.5, 0.5, 1.0]
-    aisle_length = 12
+    aisle_length = 14
 
-    _add_shelf_row(-1, aisle_length, -2.5, shelf_height, shelf_color)
-    _add_shelf_row(-1, aisle_length,  2.5, shelf_height, shelf_color)
+    # ---------- Shelf variation ----------
+    shelf_height = random.uniform(0.8, 1.4)
 
-    red = [0.9, 0.1, 0.1, 1.0]
-    _add_floor_tape(1, 8, -1.5, red)
-    _add_floor_tape(1, 8,  0.0, red)
-    _add_floor_tape(1, 8,  1.5, red)
-
-    box_colors_pool = [
-        [0.6, 0.5, 0.35, 1.0],
-        [0.55, 0.5, 0.3, 1.0],
-        [0.4, 0.4, 0.4, 1.0],
-        [0.7, 0.6, 0.3, 1.0],
+    shelf_palettes = [
+        [0.45, 0.45, 0.45, 1.0],
+        [0.35, 0.45, 0.35, 1.0],
+        [0.45, 0.40, 0.30, 1.0],
     ]
 
-    placed, attempts = 0, 0
-    num_boxes = random.randint(8, 14)
-    while placed < num_boxes and attempts < 100:
-        attempts += 1
-        x = random.uniform(1.5, 6.5)
-        y = random.uniform(-1.8, 1.8)
-        w = random.uniform(0.2, 0.5)
-        d = random.uniform(0.2, 0.4)
-        h = random.uniform(0.2, 0.55)
-        create_box([x, y, h / 2], [w / 2, d / 2, h / 2], random.choice(box_colors_pool))
-        placed += 1
+    shelf_color = random.choice(shelf_palettes)
 
-    for _ in range(random.randint(2, 4)):
-        x  = random.uniform(2.0, 5.0)
-        y  = random.uniform(-1.2, 1.2)
-        hb = random.uniform(0.3, 0.5)
-        ht = random.uniform(0.2, 0.35)
-        c  = random.choice(box_colors_pool)
-        create_box([x, y, hb / 2],      [0.3, 0.25, hb / 2], c)
-        create_box([x, y, hb + ht / 2], [0.25, 0.2, ht / 2], c)
+    left_width = random.uniform(2.0, 2.8)
+    right_width = random.uniform(2.0, 2.8)
 
-    return _load_robot(start_pos=[0, 0, 0.5], start_yaw=0.0)
+    _add_shelf_row(
+        -1,
+        aisle_length,
+        -left_width,
+        shelf_height,
+        shelf_color
+    )
+
+    _add_shelf_row(
+        -1,
+        aisle_length,
+        right_width,
+        shelf_height,
+        shelf_color
+    )
+
+    # ---------- Hazard tape ----------
+    red = [0.9, 0.1, 0.1, 1.0]
+
+    _add_floor_tape(
+        0,
+        aisle_length,
+        -0.8,
+        red
+    )
+
+    _add_floor_tape(
+        0,
+        aisle_length,
+        0.8,
+        red
+    )
+
+    # ---------- Obstacle colors ----------
+    obstacle_colors = [
+        [0.60, 0.50, 0.35, 1.0],
+        [0.55, 0.50, 0.30, 1.0],
+        [0.45, 0.45, 0.45, 1.0],
+        [0.70, 0.60, 0.30, 1.0],
+    ]
+
+    # ---------- Different blockage patterns ----------
+    pattern = random.randint(0, 4)
+
+    # ==================================================
+    # Pattern 0 : CENTER BLOCKAGE
+    # ==================================================
+    if pattern == 0:
+
+        for _ in range(random.randint(5, 10)):
+
+            create_box(
+                [
+                    random.uniform(4, 10),
+                    random.uniform(-0.35, 0.35),
+                    random.uniform(0.25, 0.7)
+                ],
+                [
+                    random.uniform(0.18, 0.35),
+                    random.uniform(0.18, 0.35),
+                    random.uniform(0.18, 0.35)
+                ],
+                random.choice(obstacle_colors)
+            )
+
+    # ==================================================
+    # Pattern 1 : LEFT SIDE BLOCKED
+    # ==================================================
+    elif pattern == 1:
+
+        for _ in range(random.randint(8, 14)):
+
+            create_box(
+                [
+                    random.uniform(3, 11),
+                    random.uniform(-1.3, -0.2),
+                    random.uniform(0.25, 0.8)
+                ],
+                [
+                    random.uniform(0.18, 0.40),
+                    random.uniform(0.18, 0.40),
+                    random.uniform(0.18, 0.40)
+                ],
+                random.choice(obstacle_colors)
+            )
+
+    # ==================================================
+    # Pattern 2 : RIGHT SIDE BLOCKED
+    # ==================================================
+    elif pattern == 2:
+
+        for _ in range(random.randint(8, 14)):
+
+            create_box(
+                [
+                    random.uniform(3, 11),
+                    random.uniform(0.2, 1.3),
+                    random.uniform(0.25, 0.8)
+                ],
+                [
+                    random.uniform(0.18, 0.40),
+                    random.uniform(0.18, 0.40),
+                    random.uniform(0.18, 0.40)
+                ],
+                random.choice(obstacle_colors)
+            )
+
+    # ==================================================
+    # Pattern 3 : FULL BLOCKAGE WALL
+    # ==================================================
+    elif pattern == 3:
+
+        for _ in range(random.randint(14, 22)):
+
+            create_box(
+                [
+                    random.uniform(5, 9),
+                    random.uniform(-1.2, 1.2),
+                    random.uniform(0.25, 0.9)
+                ],
+                [
+                    random.uniform(0.20, 0.45),
+                    random.uniform(0.20, 0.45),
+                    random.uniform(0.20, 0.45)
+                ],
+                random.choice(obstacle_colors)
+            )
+
+    # ==================================================
+    # Pattern 4 : SCATTERED CARGO FIELD
+    # ==================================================
+    else:
+
+        for _ in range(random.randint(12, 24)):
+
+            create_box(
+                [
+                    random.uniform(3, 12),
+                    random.uniform(-1.5, 1.5),
+                    random.uniform(0.2, 0.8)
+                ],
+                [
+                    random.uniform(0.15, 0.50),
+                    random.uniform(0.15, 0.50),
+                    random.uniform(0.15, 0.50)
+                ],
+                random.choice(obstacle_colors)
+            )
+
+    # ---------- Random stacked pallets ----------
+    for _ in range(random.randint(2, 6)):
+
+        x = random.uniform(4, 10)
+        y = random.uniform(-1.2, 1.2)
+
+        base_h = random.uniform(0.25, 0.5)
+        top_h = random.uniform(0.15, 0.35)
+
+        color = random.choice(obstacle_colors)
+
+        create_box(
+            [x, y, base_h / 2],
+            [0.30, 0.25, base_h / 2],
+            color
+        )
+
+        create_box(
+            [x, y, base_h + top_h / 2],
+            [0.24, 0.20, top_h / 2],
+            color
+        )
+
+    # ---------- End wall ----------
+    create_box(
+        [aisle_length + 0.5, 0, shelf_height / 2],
+        [0.1, 3.0, shelf_height / 2],
+        [0.35, 0.35, 0.35, 1.0]
+    )
+
+    return _load_robot(
+        start_pos=[0, 0, 0.5],
+        start_yaw=0.0
+    )
 
 
 
 def create_cross_aisle_junction(seed=42):
-    
+
     _setup_base(seed)
+    random.seed(seed)
 
-    shelf_height  = random.uniform(0.75, 1.0)
-    shelf_color   = [random.uniform(0.45, 0.6)] * 3 + [1.0]
-    junction_type = 'plus' if seed % 2 == 0 else 'T'
+    shelf_height = random.uniform(0.8, 1.4)
 
-    for xi in range(-2, 4):
-        create_box([float(xi), -2.0, shelf_height / 2],
-                   [0.45, 0.3, shelf_height / 2], shelf_color)
-        create_box([float(xi),  2.0, shelf_height / 2],
-                   [0.45, 0.3, shelf_height / 2], shelf_color)
+    shelf_palettes = [
+        [0.45, 0.45, 0.45, 1.0],
+        [0.35, 0.50, 0.35, 1.0],
+        [0.45, 0.40, 0.30, 1.0],
+        [0.35, 0.35, 0.55, 1.0]
+    ]
 
-    cap_color = [random.uniform(0.35, 0.5)] * 3 + [1.0]
-    for x_cap in [3.5, 4.5]:
-        create_box([x_cap, -2.0, shelf_height / 2],
-                   [0.08, 0.5, shelf_height / 2], cap_color)
-        create_box([x_cap,  2.0, shelf_height / 2],
-                   [0.08, 0.5, shelf_height / 2], cap_color)
+    shelf_color = random.choice(shelf_palettes)
 
-    for yi in range(2, 10):
-        y = -float(yi)
-        create_box([4.0, y, shelf_height / 2],
-                   [0.45, 0.3, shelf_height / 2], shelf_color)
-        create_box([8.0, y, shelf_height / 2],
-                   [0.45, 0.3, shelf_height / 2], shelf_color)
+    aisle_half_width = random.uniform(1.8, 2.8)
 
-    for yi in range(2, 10):
-        y = float(yi)
-        create_box([4.0, y, shelf_height / 2],
-                   [0.45, 0.3, shelf_height / 2], shelf_color)
-        create_box([8.0, y, shelf_height / 2],
-                   [0.45, 0.3, shelf_height / 2], shelf_color)
+    junction_x = random.uniform(4.5, 8.5)
 
-    if junction_type == 'plus':
-        for xi in range(5, 16):
-            create_box([float(xi), -2.0, shelf_height / 2],
-                       [0.45, 0.3, shelf_height / 2], shelf_color)
-            create_box([float(xi),  2.0, shelf_height / 2],
-                       [0.45, 0.3, shelf_height / 2], shelf_color)
-    else:
-        create_box([9.0, 0.0, shelf_height / 2],
-                   [0.3, 5.0, shelf_height / 2], shelf_color)
+    junction_type = random.choice([
+        "plus",
+        "plus",
+        "plus",
+        "T",
+        "wide"
+    ])
 
-    YELLOW = [1.0, 0.85, 0.0, 1.0]
-    DARK   = [0.15, 0.15, 0.15, 1.0]
-    for cx, cy in [(3.5, -1.8), (3.5, 1.8), (4.5, -1.8), (4.5, 1.8)]:
-        create_cylinder([cx, cy, 0.5], radius=0.06, height=1.0, color=DARK)
-        create_box([cx, cy, 0.75], [0.07, 0.07, 0.12], YELLOW)
+    aisle_length = 18
 
-    WHITE = [0.92, 0.92, 0.92, 1.0]
-    create_box([4.0, 0.0, 0.012], [2.0, 0.10, 0.012], WHITE)
-    create_box([4.0, 0.0, 0.012], [0.10, 2.5, 0.012], WHITE)
+    # ==================================================
+    # Main aisle before intersection
+    # ==================================================
 
-    return _load_robot(start_pos=[4.0, 0.0, 0.5], start_yaw=0.0)
+    x = -1
+
+    while x < junction_x:
+
+        create_box(
+            [x, -aisle_half_width, shelf_height / 2],
+            [0.45, 0.3, shelf_height / 2],
+            shelf_color
+        )
+
+        create_box(
+            [x, aisle_half_width, shelf_height / 2],
+            [0.45, 0.3, shelf_height / 2],
+            shelf_color
+        )
+
+        x += 1.0
+
+    # ==================================================
+    # Cross aisle
+    # ==================================================
+
+    cross_width = random.uniform(2.5, 5.0)
+
+    y = -8
+
+    while y <= 8:
+
+        if abs(y) > cross_width / 2:
+
+            create_box(
+                [junction_x, y, shelf_height / 2],
+                [0.35, 0.45, shelf_height / 2],
+                shelf_color
+            )
+
+            create_box(
+                [junction_x + 4, y, shelf_height / 2],
+                [0.35, 0.45, shelf_height / 2],
+                shelf_color
+            )
+
+        y += 1.0
+
+    # ==================================================
+    # Continue aisle after intersection
+    # ==================================================
+
+    if junction_type == "plus":
+
+        x = junction_x + 4
+
+        while x < aisle_length:
+
+            create_box(
+                [x, -aisle_half_width, shelf_height / 2],
+                [0.45, 0.3, shelf_height / 2],
+                shelf_color
+            )
+
+            create_box(
+                [x, aisle_half_width, shelf_height / 2],
+                [0.45, 0.3, shelf_height / 2],
+                shelf_color
+            )
+
+            x += 1.0
+
+    elif junction_type == "T":
+
+        create_box(
+            [junction_x + 4.5, 0,
+             shelf_height / 2],
+            [0.15, 5.0, shelf_height / 2],
+            shelf_color
+        )
+
+    elif junction_type == "wide":
+
+        x = junction_x + 5
+
+        while x < aisle_length:
+
+            create_box(
+                [x, -aisle_half_width, shelf_height / 2],
+                [0.45, 0.3, shelf_height / 2],
+                shelf_color
+            )
+
+            create_box(
+                [x, aisle_half_width, shelf_height / 2],
+                [0.45, 0.3, shelf_height / 2],
+                shelf_color
+            )
+
+            x += 1.0
+
+    # ==================================================
+    # Safety posts
+    # ==================================================
+
+    post_color = [0.15, 0.15, 0.15, 1.0]
+    cap_color = [1.0, 0.85, 0.0, 1.0]
+
+    for px, py in [
+        (junction_x - 0.5, -aisle_half_width),
+        (junction_x - 0.5, aisle_half_width),
+        (junction_x + 0.5, -aisle_half_width),
+        (junction_x + 0.5, aisle_half_width)
+    ]:
+
+        create_cylinder(
+            [px, py, 0.5],
+            radius=0.06,
+            height=1.0,
+            color=post_color
+        )
+
+        create_box(
+            [px, py, 0.75],
+            [0.07, 0.07, 0.12],
+            cap_color
+        )
+
+    # ==================================================
+    # Floor markings
+    # ==================================================
+
+    white = [0.95, 0.95, 0.95, 1.0]
+
+    create_box(
+        [junction_x, 0, 0.012],
+        [2.5, 0.08, 0.012],
+        white
+    )
+
+    create_box(
+        [junction_x, 0, 0.012],
+        [0.08, cross_width / 2, 0.012],
+        white
+    )
+
+    # ==================================================
+    # Cargo near intersection
+    # ==================================================
+
+    cargo_colors = [
+        [0.7, 0.5, 0.2, 1.0],
+        [0.8, 0.2, 0.2, 1.0],
+        [0.2, 0.5, 0.8, 1.0]
+    ]
+
+    for _ in range(random.randint(4, 10)):
+
+        create_box(
+            [
+                random.uniform(junction_x - 2,
+                               junction_x + 2),
+                random.choice([
+                    random.uniform(
+                        aisle_half_width + 0.5,
+                        aisle_half_width + 2
+                    ),
+                    random.uniform(
+                        -(aisle_half_width + 2),
+                        -(aisle_half_width + 0.5)
+                    )
+                ]),
+                0.2
+            ],
+            [0.25, 0.25, 0.2],
+            random.choice(cargo_colors)
+        )
+
+    return _load_robot(
+        start_pos=[0, 0, 0.5],
+        start_yaw=0.0
+    )
 
 
 
