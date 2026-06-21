@@ -1,4 +1,4 @@
 split,total,ratio,open_aisle,narrow_aisle,pick_station,blocked_path,cross_aisle_junction
 Train,29750,70.0%,5950,5950,5950,5950,5950
-Val,6375,15.0%,1275,1275,1275,1275,1275
-Test,6375,15.0%,1275,1275,1275,1275,1275
+Val,6800,16.0%,850,1700,1700,1700,850
+Test,5950,14.0%,1700,850,850,850,1700

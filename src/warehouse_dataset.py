@@ -103,72 +103,60 @@ def make_stratified_splits(
     random_state=42
 ):
 
-    assert abs(train_ratio + val_ratio + test_ratio - 1.0) < 1e-6, \
-        'Split ratios must sum to 1.0'
-
     df = pd.read_csv(labels_csv)
 
-    groups = df['env_run']
+    train_runs = []
+    val_runs = []
+    test_runs = []
 
-    # First split: train vs temp
-    gss1 = GroupShuffleSplit(
-        n_splits=1,
-        test_size=(val_ratio + test_ratio),
-        random_state=random_state
-    )
+    rng = np.random.RandomState(random_state)
 
-    train_idx, temp_idx = next(
-        gss1.split(df, groups=groups)
-    )
+    class_names = sorted(df["class_name"].unique())
 
-    train_df = df.iloc[train_idx]
-    temp_df = df.iloc[temp_idx]
+    for class_idx, class_name in enumerate(class_names):
 
-    # Second split: val vs test
-    temp_groups = temp_df['env_run']
-
-    gss2 = GroupShuffleSplit(
-        n_splits=1,
-        test_size=(
-            test_ratio /
-            (val_ratio + test_ratio)
-        ),
-        random_state=random_state
-    )
-
-    val_idx, test_idx = next(
-        gss2.split(
-            temp_df,
-            groups=temp_groups
+        runs = sorted(
+            df[
+                df["class_name"] == class_name
+            ]["env_run"].unique()
         )
-    )
 
-    val_df = temp_df.iloc[val_idx]
-    test_df = temp_df.iloc[test_idx]
+        rng.shuffle(runs)
 
-    # Leakage checks
-    train_runs = set(
-        train_df['env_run'].unique()
-    )
+        if class_idx % 2 == 0:
+            # 7 train, 2 val, 1 test
+            train_runs.extend(runs[:7])
+            val_runs.extend(runs[7:9])
+            test_runs.extend(runs[9:10])
 
-    val_runs = set(
-        val_df['env_run'].unique()
-    )
+        else:
+            # 7 train, 1 val, 2 test
+            train_runs.extend(runs[:7])
+            val_runs.extend(runs[7:8])
+            test_runs.extend(runs[8:10])
 
-    test_runs = set(
-        test_df['env_run'].unique()
-    )
+    train_df = df[df["env_run"].isin(train_runs)].reset_index(drop=True)
+    val_df = df[df["env_run"].isin(val_runs)].reset_index(drop=True)
+    test_df = df[df["env_run"].isin(test_runs)].reset_index(drop=True)
 
-    assert train_runs.isdisjoint(val_runs), \
+    train_runs_set = set(train_df["env_run"].unique())
+    val_runs_set = set(val_df["env_run"].unique())
+    test_runs_set = set(test_df["env_run"].unique())
+
+    assert train_runs_set.isdisjoint(val_runs_set), \
         "LEAK: train/val share runs"
 
-    assert train_runs.isdisjoint(test_runs), \
+    assert train_runs_set.isdisjoint(test_runs_set), \
         "LEAK: train/test share runs"
 
-    assert val_runs.isdisjoint(test_runs), \
+    assert val_runs_set.isdisjoint(test_runs_set), \
         "LEAK: val/test share runs"
 
     print("No leakage! Splits are clean.")
+    print()
+    print(f"Train runs: {len(train_runs_set)}")
+    print(f"Val runs:   {len(val_runs_set)}")
+    print(f"Test runs:  {len(test_runs_set)}")
 
     return train_df, val_df, test_df
 
